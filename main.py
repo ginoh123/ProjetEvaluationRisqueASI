@@ -1,5 +1,9 @@
 import customtkinter as ctk
+import pandas as pd
+from cryptography.fernet import Fernet
+import os
 from tkinter import messagebox, ttk
+from datetime import datetime
 
 # Configuration de l'apparence
 ctk.set_appearance_mode("System")
@@ -61,17 +65,7 @@ def ajouter_employe(nom, prenom, email, telephone, salaire):
     sauvegarder_base(df)
     return True
 
-
-# ==============================================
-#  FONCTIONS BACKEND
-# ==============================================
-
-
-
-# ==============================================
-# INTERFACE GRAPHIQUE (FRONT-END)
-# ==============================================
-
+# Interface graphique
 class AppEmployes(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -107,18 +101,20 @@ class AppEmployes(ctk.CTk):
         desc = ctk.CTkLabel(tab, text="""Système de gestion sécurisée des employés avec chiffrement AES-256
 ➡️ Ajoutez des employés avec chiffrement automatique
 ➡️ Affichez les données avec protection par mot de passe
-➡️ Sécurisez les informations sensibles""",
+➡️ Sécurisez les informations senselles""",
                           font=ctk.CTkFont(size=14))
         desc.pack(pady=10)
         
         # Statistiques
+        df = charger_base()
         stats_frame = ctk.CTkFrame(tab)
         stats_frame.pack(pady=20)
         
-        ctk.CTkLabel(stats_frame, text="👥 Employés total: 0", 
+        ctk.CTkLabel(stats_frame, text=f"👥 Employés total: {len(df)}", 
                     font=ctk.CTkFont(size=16)).pack(pady=5)
-        ctk.CTkLabel(stats_frame, text="📅 Dernier ajout: Aucun", 
-                    font=ctk.CTkFont(size=16)).pack(pady=5)
+        if not df.empty:
+            ctk.CTkLabel(stats_frame, text=f"📅 Dernier ajout: {df['date_ajout'].max()}", 
+                        font=ctk.CTkFont(size=16)).pack(pady=5)
     
     def setup_afficher(self):
         tab = self.tabview.tab("Afficher Employés")
@@ -151,11 +147,8 @@ class AppEmployes(ctk.CTk):
         for widget in self.data_frame.winfo_children():
             widget.destroy()
         
-        
-        # Simulation données vides
-        df_vide = True
-        
-        if df_vide:
+        df = charger_base()
+        if df.empty:
             ctk.CTkLabel(self.data_frame, text="Aucun employé enregistré").pack(pady=20)
             return
         
@@ -168,14 +161,28 @@ class AppEmployes(ctk.CTk):
             tree.heading(col, text=col)
             tree.column(col, width=100)
         
-        # Boucle sur les données réelles
-    
+        # Ajouter les données
+        for _, row in df.iterrows():
+            if dechiffre:
+                email = dechiffrer(row['email'])
+                telephone = dechiffrer(row['telephone'])
+                salaire = dechiffrer(row['salaire'])
+            else:
+                email = "🔒 CHIFFRÉ"
+                telephone = "🔒 CHIFFRÉ"
+                salaire = "🔒 CHIFFRÉ"
+            
+            tree.insert("", "end", values=(
+                row['id'], row['nom'], row['prenom'], 
+                email, telephone, salaire, row['date_ajout']
+            ))
         
         tree.pack(fill="both", expand=True)
     
     def dechiffrer_donnees(self):
         password = self.password_entry.get()
         if password == PASSWORD_DECHIFFREMENT:
+            self.afficher_donnees(dechiffre=True)
             messagebox.showinfo("Succès", "Données déchiffrées avec succès!")
         else:
             messagebox.showerror("Erreur", "Mot de passe incorrect!")
@@ -218,6 +225,26 @@ class AppEmployes(ctk.CTk):
                               font=ctk.CTkFont(size=14))
         add_btn.pack(pady=20)
     
+    def ajouter_employe(self):
+        données = {key: entry.get() for key, entry in self.entries.items()}
+        
+        if all(données.values()):
+            try:
+                ajouter_employe(
+                    données['nom_entry'],
+                    données['prenom_entry'],
+                    données['email_entry'],
+                    données['telephone_entry'],
+                    float(données['salaire_entry'])
+                )
+                messagebox.showinfo("Succès", "Employé ajouté avec succès!")
+                # Réinitialiser les champs
+                for entry in self.entries.values():
+                    entry.delete(0, "end")
+            except Exception as e:
+                messagebox.showerror("Erreur", f"Erreur: {str(e)}")
+        else:
+            messagebox.showerror("Erreur", "Tous les champs sont obligatoires!")
     
     def setup_a_propos(self):
         tab = self.tabview.tab("À Propos")
