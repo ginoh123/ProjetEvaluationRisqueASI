@@ -7,9 +7,60 @@ ctk.set_default_color_theme("blue")
 
 # Configuration du chiffrement
 PASSWORD_DECHIFFREMENT = "1234"
-
-# Chemin de la base de données
 DB_FILE = "employes_securise.xlsx"
+
+def get_encryption_key():
+    if os.path.exists("secret.key"):
+        with open("secret.key", "rb") as f:
+            return f.read()
+    else:
+        key = Fernet.generate_key()
+        with open("secret.key", "wb") as f:
+            f.write(key)
+        return key
+
+KEY = get_encryption_key()
+CIPHER = Fernet(KEY)
+
+# Fonctions de chiffrement
+def chiffrer(donnee):
+    if pd.isna(donnee) or donnee == "":
+        return donnee
+    return CIPHER.encrypt(str(donnee).encode()).decode()
+
+def dechiffrer(donnee_chiffree):
+    if pd.isna(donnee_chiffree) or donnee_chiffree == "":
+        return donnee_chiffree
+    try:
+        return CIPHER.decrypt(donnee_chiffree.encode()).decode()
+    except:
+        return "ERREUR_DECHIFFREMENT"
+
+# Gestion de la base de données
+def charger_base():
+    if os.path.exists(DB_FILE):
+        return pd.read_excel(DB_FILE)
+    else:
+        return pd.DataFrame(columns=['id', 'nom', 'prenom', 'email', 'telephone', 'salaire', 'date_ajout'])
+
+def sauvegarder_base(df):
+    df.to_excel(DB_FILE, index=False)
+
+def ajouter_employe(nom, prenom, email, telephone, salaire):
+    df = charger_base()
+    nouvel_employe = {
+        'id': len(df) + 1,
+        'nom': nom,
+        'prenom': prenom,
+        'email': chiffrer(email),
+        'telephone': chiffrer(telephone),
+        'salaire': chiffrer(str(salaire)),
+        'date_ajout': datetime.now().strftime("%Y-%m-%d %H:%M")
+    }
+    df = pd.concat([df, pd.DataFrame([nouvel_employe])], ignore_index=True)
+    sauvegarder_base(df)
+    return True
+
 
 # ==============================================
 #  FONCTIONS BACKEND
