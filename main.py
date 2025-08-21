@@ -88,6 +88,9 @@ class AppEmployes(ctk.CTk):
         self.setup_afficher()
         self.setup_ajouter()
         self.setup_a_propos()
+        
+        # État de l'affichage (chiffré ou déchiffré)
+        self.est_dechiffre = False
     
     def setup_accueil(self):
         tab = self.tabview.tab("Accueil")
@@ -156,9 +159,13 @@ class AppEmployes(ctk.CTk):
         self.password_entry = ctk.CTkEntry(pass_frame, show="*", width=150)
         self.password_entry.pack(side="left", padx=5)
         
-        decrypt_btn = ctk.CTkButton(pass_frame, text="🔓 Déchiffrer", 
+        self.decrypt_btn = ctk.CTkButton(pass_frame, text="🔓 Déchiffrer", 
                                   command=self.dechiffrer_donnees)
-        decrypt_btn.pack(side="left", padx=5)
+        self.decrypt_btn.pack(side="left", padx=5)
+        
+        self.encrypt_btn = ctk.CTkButton(pass_frame, text="🔒 Recréer", 
+                                  command=self.chiffrer_donnees, state="disabled")
+        self.encrypt_btn.pack(side="left", padx=5)
         
         # Frame pour le tableau avec barre de défilement
         table_frame = ctk.CTkFrame(tab)
@@ -214,9 +221,19 @@ class AppEmployes(ctk.CTk):
         password = self.password_entry.get()
         if password == PASSWORD_DECHIFFREMENT:
             self.afficher_donnees(dechiffre=True)
+            self.est_dechiffre = True
+            self.decrypt_btn.configure(state="disabled")
+            self.encrypt_btn.configure(state="normal")
             messagebox.showinfo("Succès", "Données déchiffrées avec succès!")
         else:
             messagebox.showerror("Erreur", "Mot de passe incorrect!")
+    
+    def chiffrer_donnees(self):
+        self.afficher_donnees(dechiffre=False)
+        self.est_dechiffre = False
+        self.decrypt_btn.configure(state="normal")
+        self.encrypt_btn.configure(state="disabled")
+        messagebox.showinfo("Succès", "Données chiffrées à nouveau!")
     
     def setup_ajouter(self):
         tab = self.tabview.tab("Ajouter Employé")
@@ -271,7 +288,10 @@ class AppEmployes(ctk.CTk):
                 for entry in self.entries.values():
                     entry.delete(0, "end")
                 # Mettre à jour l'affichage
-                self.afficher_donnees()
+                if self.est_dechiffre:
+                    self.afficher_donnees(dechiffre=True)
+                else:
+                    self.afficher_donnees(dechiffre=False)
             except Exception as e:
                 messagebox.showerror("Erreur", f"Erreur: {str(e)}")
         else:
